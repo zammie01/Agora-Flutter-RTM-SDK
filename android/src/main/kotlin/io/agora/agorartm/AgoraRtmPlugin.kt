@@ -3,17 +3,9 @@ package io.agora.agorartm
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import io.agora.rtm.ErrorInfo
-import io.agora.rtm.LocalInvitation
-import io.agora.rtm.PeerOnlineState
-import io.agora.rtm.RtmAttribute
-import io.agora.rtm.RtmChannelAttribute
-import io.agora.rtm.RtmChannelMember
-import io.agora.rtm.RtmChannelMemberCount
-import io.agora.rtm.RtmClient
-import io.agora.rtm.RtmStatusCode.JoinChannelError.JOIN_CHANNEL_ERR_NOT_INITIALIZED
-import io.agora.rtm.RtmStatusCode.LoginError.LOGIN_ERR_NOT_INITIALIZED
+import io.agora.rtm.*
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -22,13 +14,15 @@ import io.flutter.plugin.common.MethodChannel.Result
 class AgoraRtmPlugin : FlutterPlugin, MethodCallHandler {
     private lateinit var applicationContext: Context
     private lateinit var methodChannel: MethodChannel
+    private lateinit var binaryMessenger: BinaryMessenger
     private val handler = Handler(Looper.getMainLooper())
     private var nextClientIndex: Long = 0
     private val clients = HashMap<Long, RTMClient>()
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = binding.applicationContext
-        methodChannel = MethodChannel(binding.binaryMessenger, "io.agora.rtm")
+        binaryMessenger = binding.binaryMessenger
+        methodChannel = MethodChannel(binaryMessenger, "io.agora.rtm")
         methodChannel.setMethodCallHandler(this)
     }
 
@@ -62,7 +56,7 @@ class AgoraRtmPlugin : FlutterPlugin, MethodCallHandler {
                     applicationContext,
                     appId,
                     nextClientIndex,
-                    methodChannel.binaryMessenger,
+                    binaryMessenger,
                     handler
                 )
                 clients[nextClientIndex] = rtmClient
@@ -121,7 +115,7 @@ class AgoraRtmPlugin : FlutterPlugin, MethodCallHandler {
                     val agoraRtmChannel = RTMChannel(
                         clientIndex,
                         channelId,
-                        methodChannel.binaryMessenger,
+                        binaryMessenger,
                         handler
                     )
                     client.createChannel(channelId, agoraRtmChannel)?.let {
@@ -335,3 +329,70 @@ class AgoraRtmPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 }
+
+// Placeholder Callback class
+abstract class Callback<T>(private val result: Result, private val handler: Handler) {
+    open fun toJson(responseInfo: T): Any = responseInfo as Any
+    fun onSuccess(value: T?) {
+        handler.post { result.success(value?.let { toJson(it) }) }
+    }
+    fun onFailure(error: ErrorInfo) {
+        handler.post { result.error(error.errorCode.toString(), error.errorDescription, null) }
+    }
+}
+
+// Placeholder RTMClient class (simplified)
+class RTMClient(
+    context: Context,
+    appId: String?,
+    val clientIndex: Long,
+    binaryMessenger: BinaryMessenger,
+    handler: Handler
+) {
+    val client: RtmClient? = null // Replace with actual RtmClient initialization
+    val channels = HashMap<String, RTMChannel>()
+    val call = RTMCall()
+
+    companion object {
+        fun getSdkVersion(): String = "1.0.0" // Placeholder
+        fun setRtmServiceContext(context: RtmServiceContext?): RtmStatusCode = RtmStatusCode(0) // Placeholder
+    }
+}
+
+// Placeholder RTMChannel class (simplified)
+class RTMChannel(
+    val clientIndex: Long,
+    val channelId: String?,
+    binaryMessenger: BinaryMessenger,
+    handler: Handler
+) {
+    fun join(callback: Callback<Void>) {}
+    fun leave(callback: Callback<Void>) {}
+    fun sendMessage(message: RtmMessage?, options: SendMessageOptions?, callback: Callback<Void>) {}
+    fun getMembers(callback: Callback<List<RtmChannelMember>>) {}
+    fun release() {}
+}
+
+// Placeholder RTMCall class (simplified)
+class RTMCall {
+    val manager: RtmCallManager? = null // Replace with actual RtmCallManager
+    val localInvitations = HashMap<Int, LocalInvitation>()
+    val remoteInvitations = HashMap<Int, RemoteInvitation>()
+}
+
+// Placeholder utility functions (implement these based on your needs)
+fun Map<*, *>.toRtmServiceContext(): RtmServiceContext = RtmServiceContext() // Placeholder
+fun Map<*, *>.toRtmMessage(client: RtmClient?): RtmMessage = RtmMessage() // Placeholder
+fun Map<*, *>.toSendMessageOptions(): SendMessageOptions = SendMessageOptions() // Placeholder
+fun ArrayList<*>.toStringSet(): Set<String> = this.mapNotNull { it as? String }.toSet()
+fun List<*>.toRtmAttributeList(): List<RtmAttribute> = emptyList() // Placeholder
+fun List<*>.toStringList(): List<String> = this.mapNotNull { it as? String }
+fun List<*>.toRtmChannelAttributeList(): List<RtmChannelAttribute> = emptyList() // Placeholder
+fun Map<*, *>.toChannelAttributeOptions(): ChannelAttributeOptions = ChannelAttributeOptions() // Placeholder
+fun List<RtmAttribute>.toJson(): Any = this.map { mapOf("key" to it.key, "value" to it.value) }
+fun List<RtmChannelAttribute>.toJson(): Any = this.map { mapOf("key" to it.key, "value" to it.value) }
+fun List<RtmChannelMember>.toJson(): Any = this.map { mapOf("userId" to it.userId) }
+fun List<RtmChannelMemberCount>.toJson(): Any = this.map { mapOf("channelId" to it.channelId, "count" to it.memberCount) }
+fun Map<*, *>.toLocalInvitation(call: RTMCall): LocalInvitation = call.localInvitations.values.first() // Placeholder
+fun Map<*, *>.toRemoteInvitation(call: RTMCall): RemoteInvitation = call.remoteInvitations.values.first() // Placeholder
+fun LocalInvitation.toJson(): Any = mapOf("calleeId" to this.calleeId) // Placeholder
